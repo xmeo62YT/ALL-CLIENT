@@ -1,0 +1,215 @@
+-- ═════════════════════════════════════════════
+-- NPC SCANNER CDVN - PHIÊN BẢN FIX LAG + KÉO MƯỢT
+-- ═════════════════════════════════════════════
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "NPCScannerCDVN"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 340, 0, 420)
+frame.Position = UDim2.new(0.5, -170, 0.1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true  -- <<< ĐÃ BẬT KÉO THẢ TRỰC TIẾP
+frame.Parent = gui
+
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 16)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(0, 255, 200)
+stroke.Thickness = 2
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "NPC SCANNER CDVN"
+title.TextColor3 = Color3.fromRGB(0, 255, 200)
+title.TextSize = 26
+title.Font = Enum.Font.GothamBold
+
+local toggleBtn = Instance.new("TextButton", frame)
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 45)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.15, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+toggleBtn.Text = "BẬT HIỂN THỊ TÊN NPC"
+toggleBtn.TextColor3 = Color3.new(1)
+toggleBtn.TextSize = 18
+toggleBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 12)
+
+local status = Instance.new("TextLabel", frame)
+status.Size = UDim2.new(0.9, 0, 0, 35)
+status.Position = UDim2.new(0.05, 0, 0.27, 0)
+status.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+status.Text = "⏹️ Chưa bật"
+status.TextColor3 = Color3.fromRGB(200, 200, 200)
+status.TextSize = 16
+Instance.new("UICorner", status).CornerRadius = UDim.new(0, 8)
+
+local listFrame = Instance.new("ScrollingFrame", frame)
+listFrame.Size = UDim2.new(0.92, 0, 0.5, 0)
+listFrame.Position = UDim2.new(0.04, 0, 0.38, 0)
+listFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+listFrame.ScrollBarThickness = 6
+listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+Instance.new("UICorner", listFrame).CornerRadius = UDim.new(0, 10)
+
+local layout = Instance.new("UIListLayout", listFrame)
+layout.Padding = UDim.new(0, 5)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+local consoleBtn = Instance.new("TextButton", frame)
+consoleBtn.Size = UDim2.new(0.44, 0, 0, 40)
+consoleBtn.Position = UDim2.new(0.04, 0, 0.9, 0)
+consoleBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 255)
+consoleBtn.Text = "CONSOLE ALL"
+consoleBtn.TextColor3 = Color3.new(1)
+Instance.new("UICorner", consoleBtn).CornerRadius = UDim.new(0, 10)
+
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -50, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.new(1)
+closeBtn.TextSize = 24
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 12)
+
+-- Biến
+local enabled = false
+local billboards = {}
+
+-- Hàm tạo tên trên đầu
+local function addName(npc)
+    if npc:FindFirstChild("Head") and not billboards[npc] then
+        local bill = Instance.new("BillboardGui")
+        bill.Adornee = npc.Head
+        bill.Size = UDim2.new(0, 300, 0, 70)
+        bill.StudsOffset = Vector3.new(0, 3.5, 0)
+        bill.AlwaysOnTop = true
+        bill.Parent = npc.Head
+
+        local txt = Instance.new("TextLabel", bill)
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = npc.Name .. "\n" .. (npc:FindFirstChild("Humanoid") and npc.Humanoid.DisplayName or "")
+        txt.TextColor3 = Color3.fromRGB(255, 255, 0)
+        txt.TextStrokeTransparency = 0
+        txt.TextStrokeColor3 = Color3.new(0, 0, 0)
+        txt.TextScaled = true
+        txt.Font = Enum.Font.GothamBlack
+
+        billboards[npc] = bill
+    end
+end
+
+-- Xóa tên
+local function removeAllNames()
+    for npc, bill in pairs(billboards) do
+        if bill then bill:Destroy() end
+    end
+    billboards = {}
+end
+
+-- Update danh sách
+local function updateList()
+    for _, v in pairs(listFrame:GetChildren()) do
+        if v:IsA("TextButton") then v:Destroy() end
+    end
+
+    local count = 0
+    for _, model in pairs(workspace:GetDescendants()) do
+        if model:IsA("Model") and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+            local isPlayer = false
+            for _, p in Players:GetPlayers() do
+                if p.Character == model then isPlayer = true break end
+            end
+            if not isPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = math.floor((player.Character.HumanoidRootPart.Position - model.HumanoidRootPart.Position).Magnitude)
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1, -10, 0, 40)
+                btn.BackgroundColor3 = Color3.fromRGB(45, 45, 70)
+                btn.Text = model.Name .. " | " .. (model.Humanoid.DisplayName or "?") .. " | " .. dist .. "m"
+                btn.TextColor3 = Color3.new(1)
+                btn.TextSize = 14
+                btn.Parent = listFrame
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+                btn.MouseButton1Click:Connect(function()
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        player.Character.HumanoidRootPart.CFrame = model.HumanoidRootPart.CFrame * CFrame.new(0, 4, -4)
+                    end
+                end)
+                count = count + 1
+            end
+        end
+    end
+    listFrame.CanvasSize = UDim2.new(0, 0, 0, count * 45)
+    status.Text = "Tìm thấy " .. count .. " NPC"
+end
+
+-- Toggle
+toggleBtn.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    if enabled then
+        toggleBtn.Text = "ĐANG BẬT (Tên Vàng)"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 255, 60)
+        status.Text = "ĐANG HIỂN THỊ TÊN NPC"
+        status.BackgroundColor3 = Color3.fromRGB(60, 255, 60)
+    else
+        toggleBtn.Text = "BẬT HIỂN THỊ TÊN NPC"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        status.Text = "ĐÃ TẮT"
+        status.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        removeAllNames()
+    end
+end)
+
+-- Console all NPC
+consoleBtn.MouseButton1Click:Connect(function()
+    print("=== TẤT CẢ NPC TRONG GAME ===")
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Model") and v:FindFirstChild("Humanoid") then
+            print(v:GetFullName(), "| Name:", v.Name, "| Display:", v:FindFirstChild("Humanoid") and v.Humanoid.DisplayName)
+        end
+    end
+    print("=== HOÀN TẤT - COPY TÊN ĐI FARM ===")
+end)
+
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+-- Main loop siêu mượt (chỉ update khi bật)
+RunService.Heartbeat:Connect(function()
+    if enabled then
+        for _, model in pairs(workspace:GetDescendants()) do
+            if model:IsA("Model") and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 and model:FindFirstChild("Head") then
+                local isPlayer = false
+                for _, p in Players:GetPlayers() do if p.Character == model then isPlayer = true break end end
+                if not isPlayer then addName(model) end
+            end
+        end
+    end
+end)
+
+-- Update list mỗi 1 giây (không lag)
+spawn(function()
+    while wait(1) do
+        if gui.Parent then
+            updateList()
+        end
+    end
+end)
+
+print("NPC SCANNER CDVN ĐÃ LOAD XONG! Kéo thả thoải mái, bật lên là thấy tên vàng ngay!")
+print("Click vào tên trong list → TP tới liền | Bấm CONSOLE → F9 để copy tên chính xác farm!")
